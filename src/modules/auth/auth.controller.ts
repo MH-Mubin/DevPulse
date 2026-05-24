@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 
+import sendResponse from "../../utils/sendResponse";
 import type { LoginPayload, SignupPayload } from "./auth.interface";
 import { authService } from "./auth.service";
 
@@ -8,7 +9,8 @@ const signup = async (req: Request, res: Response) => {
     const { name, email, password, role } = req.body as SignupPayload;
 
     if (!name || !email || !password) {
-      return res.status(400).json({
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
         message: "Name, email, and password are required",
         errors: "Missing required fields",
@@ -16,7 +18,8 @@ const signup = async (req: Request, res: Response) => {
     }
 
     if (role && role !== "contributor" && role !== "maintainer") {
-      return res.status(400).json({
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
         message: "Invalid role",
         errors: "Role must be contributor or maintainer",
@@ -29,15 +32,18 @@ const signup = async (req: Request, res: Response) => {
 
     const result = await authService.createUser(payload);
 
-    return res.status(201).json({
+    return sendResponse(res, {
+      statusCode: 201,
       success: true,
       message: "User registered successfully",
       data: result,
     });
-  } catch (error: any) {
-    return res.status(400).json({
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Signup failed";
+    return sendResponse(res, {
+      statusCode: 400,
       success: false,
-      message: error.message,
+      message,
       errors: error,
     });
   }
@@ -48,7 +54,8 @@ const login = async (req: Request, res: Response) => {
     const { email, password } = req.body as LoginPayload;
 
     if (!email || !password) {
-      return res.status(400).json({
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
         message: "Email and password are required",
         errors: "Missing required fields",
@@ -57,15 +64,18 @@ const login = async (req: Request, res: Response) => {
 
     const result = await authService.loginUser({ email, password });
 
-    return res.status(200).json({
+    return sendResponse(res, {
+      statusCode: 200,
       success: true,
       message: "Login successful",
       data: result,
     });
-  } catch (error: any) {
-    return res.status(401).json({
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Login failed";
+    return sendResponse(res, {
+      statusCode: 401,
       success: false,
-      message: error.message,
+      message,
       errors: error,
     });
   }

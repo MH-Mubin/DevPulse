@@ -2,10 +2,10 @@ import cors from "cors";
 import type { Application, Request, Response } from "express";
 import express from "express";
 
-import { authRoute } from "./modules/auth/auth.route";
-import { issuesRoute } from "./modules/issues/issues.route";
 import globalErrorHandler from "./middleware/globalErrorHandler";
 import notFound from "./middleware/notFound";
+import { authRoute } from "./modules/auth/auth.route";
+import { issuesRoute } from "./modules/issues/issues.route";
 
 const app: Application = express();
 

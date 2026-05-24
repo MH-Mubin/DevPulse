@@ -1,9 +1,10 @@
 import type { Request, Response } from "express";
 
+import { parseIssueQuery, validateIssueInput } from "../../utils/issueHelpers";
+import sendResponse from "../../utils/sendResponse";
 import type { UserRole } from "../auth/auth.interface";
 import type {
   CreateIssuePayload,
-  IssueQuery,
   UpdateIssuePayload,
 } from "./issues.interface";
 import { issuesService } from "./issues.service";
@@ -20,35 +21,14 @@ const createIssue = async (req: Request, res: Response) => {
   try {
     const { title, description, type } = req.body as CreateIssuePayload;
 
-    if (!title || !description || !type) {
-      return res.status(400).json({
-        success: false,
-        message: "Title, description, and type are required",
-        errors: "Missing required fields",
-      });
-    }
+    const errorResult = validateIssueInput({ title, description, type }, true);
 
-    if (title.length > 150) {
-      return res.status(400).json({
+    if (errorResult) {
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
-        message: "Title is too long",
-        errors: "Title must be 150 characters or less",
-      });
-    }
-
-    if (description.length < 20) {
-      return res.status(400).json({
-        success: false,
-        message: "Description is too short",
-        errors: "Description must be at least 20 characters",
-      });
-    }
-
-    if (type !== "bug" && type !== "feature_request") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid type",
-        errors: "Type must be bug or feature_request",
+        message: errorResult.message,
+        errors: errorResult.errors,
       });
     }
 
@@ -58,7 +38,8 @@ const createIssue = async (req: Request, res: Response) => {
       user.id,
     );
 
-    return res.status(201).json({
+    return sendResponse(res, {
+      statusCode: 201,
       success: true,
       message: "Issue created successfully",
       data: result,
@@ -67,7 +48,8 @@ const createIssue = async (req: Request, res: Response) => {
     const message =
       error instanceof Error ? error.message : "Issue create failed";
 
-    return res.status(500).json({
+    return sendResponse(res, {
+      statusCode: 500,
       success: false,
       message,
       errors: error,
@@ -77,56 +59,25 @@ const createIssue = async (req: Request, res: Response) => {
 
 const getAllIssues = async (req: Request, res: Response) => {
   try {
-    const sort = (req.query.sort as string | undefined) ?? "newest";
-    const type = req.query.type as string | undefined;
-    const status = req.query.status as string | undefined;
+    const parsed = parseIssueQuery({
+      sort: req.query.sort as string | undefined,
+      type: req.query.type as string | undefined,
+      status: req.query.status as string | undefined,
+    });
 
-    if (sort !== "newest" && sort !== "oldest") {
-      return res.status(400).json({
+    if ("error" in parsed) {
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
-        message: "Invalid sort value",
-        errors: "Sort must be newest or oldest",
+        message: parsed.error.message,
+        errors: parsed.error.errors,
       });
     }
 
-    if (type && type !== "bug" && type !== "feature_request") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid type",
-        errors: "Type must be bug or feature_request",
-      });
-    }
+    const result = await issuesService.getAllIssues(parsed.query);
 
-    if (
-      status &&
-      status !== "open" &&
-      status !== "in_progress" &&
-      status !== "resolved"
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status",
-        errors: "Status must be open, in_progress, or resolved",
-      });
-    }
-
-    const query: IssueQuery = { sort };
-
-    if (type === "bug" || type === "feature_request") {
-      query.type = type;
-    }
-
-    if (
-      status === "open" ||
-      status === "in_progress" ||
-      status === "resolved"
-    ) {
-      query.status = status;
-    }
-
-    const result = await issuesService.getAllIssues(query);
-
-    return res.status(200).json({
+    return sendResponse(res, {
+      statusCode: 200,
       success: true,
       message: "Issues retrived successfully",
       data: result,
@@ -135,7 +86,8 @@ const getAllIssues = async (req: Request, res: Response) => {
     const message =
       error instanceof Error ? error.message : "Failed to get issues";
 
-    return res.status(500).json({
+    return sendResponse(res, {
+      statusCode: 500,
       success: false,
       message,
       errors: error,
@@ -149,14 +101,16 @@ const getSingleIssue = async (req: Request, res: Response) => {
     const result = await issuesService.getSingleIssue(id);
 
     if (!result) {
-      return res.status(404).json({
+      return sendResponse(res, {
+        statusCode: 404,
         success: false,
         message: "Issue not found",
         errors: "No issue found with this id",
       });
     }
 
-    return res.status(200).json({
+    return sendResponse(res, {
+      statusCode: 200,
       success: true,
       message: "Issue retrived successfully",
       data: result,
@@ -165,7 +119,8 @@ const getSingleIssue = async (req: Request, res: Response) => {
     const message =
       error instanceof Error ? error.message : "Failed to get issue";
 
-    return res.status(500).json({
+    return sendResponse(res, {
+      statusCode: 500,
       success: false,
       message,
       errors: error,
@@ -178,35 +133,14 @@ const updateIssue = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { title, description, type } = req.body as UpdateIssuePayload;
 
-    if (!title && !description && !type) {
-      return res.status(400).json({
-        success: false,
-        message: "Nothing to update",
-        errors: "At least one field is required",
-      });
-    }
+    const errorResult = validateIssueInput({ title, description, type }, false);
 
-    if (title && title.length > 150) {
-      return res.status(400).json({
+    if (errorResult) {
+      return sendResponse(res, {
+        statusCode: 400,
         success: false,
-        message: "Title is too long",
-        errors: "Title must be 150 characters or less",
-      });
-    }
-
-    if (description && description.length < 20) {
-      return res.status(400).json({
-        success: false,
-        message: "Description is too short",
-        errors: "Description must be at least 20 characters",
-      });
-    }
-
-    if (type && type !== "bug" && type !== "feature_request") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid type",
-        errors: "Type must be bug or feature_request",
+        message: errorResult.message,
+        errors: errorResult.errors,
       });
     }
 
@@ -214,7 +148,8 @@ const updateIssue = async (req: Request, res: Response) => {
     const issue = await issuesService.getIssueById(id);
 
     if (!issue) {
-      return res.status(404).json({
+      return sendResponse(res, {
+        statusCode: 404,
         success: false,
         message: "Issue not found",
         errors: "No issue found with this id",
@@ -223,7 +158,8 @@ const updateIssue = async (req: Request, res: Response) => {
 
     if (user.role === "contributor") {
       if (issue.reporter_id !== user.id) {
-        return res.status(403).json({
+        return sendResponse(res, {
+          statusCode: 403,
           success: false,
           message: "Forbidden",
           errors: "You can only update your own issues",
@@ -231,7 +167,8 @@ const updateIssue = async (req: Request, res: Response) => {
       }
 
       if (issue.status !== "open") {
-        return res.status(409).json({
+        return sendResponse(res, {
+          statusCode: 409,
           success: false,
           message: "Issue cannot be updated",
           errors: "Only open issues can be updated by contributors",
@@ -246,7 +183,8 @@ const updateIssue = async (req: Request, res: Response) => {
 
     const result = await issuesService.updateIssue(id, updatePayload);
 
-    return res.status(200).json({
+    return sendResponse(res, {
+      statusCode: 200,
       success: true,
       message: "Issue updated successfully",
       data: result,
@@ -255,7 +193,8 @@ const updateIssue = async (req: Request, res: Response) => {
     const message =
       error instanceof Error ? error.message : "Failed to update issue";
 
-    return res.status(500).json({
+    return sendResponse(res, {
+      statusCode: 500,
       success: false,
       message,
       errors: error,
@@ -269,7 +208,8 @@ const deleteIssue = async (req: Request, res: Response) => {
     const user = (req as AuthRequest).user;
 
     if (user.role !== "maintainer") {
-      return res.status(403).json({
+      return sendResponse(res, {
+        statusCode: 403,
         success: false,
         message: "Forbidden",
         errors: "Only maintainers can delete issues",
@@ -279,7 +219,8 @@ const deleteIssue = async (req: Request, res: Response) => {
     const issue = await issuesService.getIssueById(id);
 
     if (!issue) {
-      return res.status(404).json({
+      return sendResponse(res, {
+        statusCode: 404,
         success: false,
         message: "Issue not found",
         errors: "No issue found with this id",
@@ -288,7 +229,8 @@ const deleteIssue = async (req: Request, res: Response) => {
 
     await issuesService.deleteIssue(id);
 
-    return res.status(200).json({
+    return sendResponse(res, {
+      statusCode: 200,
       success: true,
       message: "Issue deleted successfully",
     });
@@ -296,7 +238,8 @@ const deleteIssue = async (req: Request, res: Response) => {
     const message =
       error instanceof Error ? error.message : "Failed to delete issue";
 
-    return res.status(500).json({
+    return sendResponse(res, {
+      statusCode: 500,
       success: false,
       message,
       errors: error,
