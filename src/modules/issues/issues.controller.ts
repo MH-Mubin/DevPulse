@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
 
 import type { UserRole } from "../auth/auth.interface";
-import type { CreateIssuePayload, IssueQuery } from "./issues.interface";
+import type {
+  CreateIssuePayload,
+  IssueQuery,
+  UpdateIssuePayload,
+} from "./issues.interface";
 import { issuesService } from "./issues.service";
 
 type AuthUser = {
@@ -108,12 +112,12 @@ const getAllIssues = async (req: Request, res: Response) => {
 
     const query: IssueQuery = { sort };
 
-    if (type) {
-      query.type = type as IssueQuery["type"];
+    if (type === "bug" || type === "feature_request") {
+      query.type = type;
     }
 
-    if (status) {
-      query.status = status as IssueQuery["status"];
+    if (status === "open" || status === "in_progress" || status === "resolved") {
+      query.status = status;
     }
 
     const result = await issuesService.getAllIssues(query);
@@ -137,7 +141,7 @@ const getAllIssues = async (req: Request, res: Response) => {
 
 const getSingleIssue = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await issuesService.getSingleIssue(id);
 
     if (!result) {
@@ -165,8 +169,99 @@ const getSingleIssue = async (req: Request, res: Response) => {
   }
 };
 
+const updateIssue = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { title, description, type } = req.body as UpdateIssuePayload;
+
+    if (!title && !description && !type) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update",
+        errors: "At least one field is required",
+      });
+    }
+
+    if (title && title.length > 150) {
+      return res.status(400).json({
+        success: false,
+        message: "Title is too long",
+        errors: "Title must be 150 characters or less",
+      });
+    }
+
+    if (description && description.length < 20) {
+      return res.status(400).json({
+        success: false,
+        message: "Description is too short",
+        errors: "Description must be at least 20 characters",
+      });
+    }
+
+    if (type && type !== "bug" && type !== "feature_request") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid type",
+        errors: "Type must be bug or feature_request",
+      });
+    }
+
+    const user = (req as AuthRequest).user;
+    const issue = await issuesService.getIssueById(id);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: "Issue not found",
+        errors: "No issue found with this id",
+      });
+    }
+
+    if (user.role === "contributor") {
+      if (issue.reporter_id !== user.id) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden",
+          errors: "You can only update your own issues",
+        });
+      }
+
+      if (issue.status !== "open") {
+        return res.status(409).json({
+          success: false,
+          message: "Issue cannot be updated",
+          errors: "Only open issues can be updated by contributors",
+        });
+      }
+    }
+
+    const updatePayload: UpdateIssuePayload = {};
+    if (title) updatePayload.title = title;
+    if (description) updatePayload.description = description;
+    if (type) updatePayload.type = type;
+
+    const result = await issuesService.updateIssue(id, updatePayload);
+
+    return res.status(200).json({
+      success: true,
+      message: "Issue updated successfully",
+      data: result,
+    });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update issue";
+
+    return res.status(500).json({
+      success: false,
+      message,
+      errors: error,
+    });
+  }
+};
+
 export const issuesController = {
   createIssue,
   getAllIssues,
   getSingleIssue,
+  updateIssue,
 };

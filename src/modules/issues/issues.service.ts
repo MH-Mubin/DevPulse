@@ -4,6 +4,7 @@ import type {
   IssueDetail,
   IssueQuery,
   IssueRecord,
+  UpdateIssuePayload,
 } from "./issues.interface";
 
 const createIssue = async (
@@ -135,8 +136,57 @@ const getSingleIssue = async (id: string): Promise<IssueDetail | null> => {
   };
 };
 
+const getIssueById = async (id: string): Promise<IssueRecord | null> => {
+  const result = await pool.query(
+    "SELECT id, title, description, type, status, reporter_id, created_at, updated_at FROM issues WHERE id = $1",
+    [id],
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0] as IssueRecord;
+};
+
+const updateIssue = async (
+  id: string,
+  payload: UpdateIssuePayload,
+): Promise<IssueRecord> => {
+  const values: Array<string> = [];
+  const fields: string[] = [];
+
+  if (payload.title) {
+    values.push(payload.title);
+    fields.push(`title = $${values.length}`);
+  }
+
+  if (payload.description) {
+    values.push(payload.description);
+    fields.push(`description = $${values.length}`);
+  }
+
+  if (payload.type) {
+    values.push(payload.type);
+    fields.push(`type = $${values.length}`);
+  }
+
+  fields.push(`updated_at = NOW()`);
+
+  values.push(id);
+
+  const result = await pool.query(
+    `UPDATE issues SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING id, title, description, type, status, reporter_id, created_at, updated_at`,
+    values,
+  );
+
+  return result.rows[0] as IssueRecord;
+};
+
 export const issuesService = {
   createIssue,
   getAllIssues,
   getSingleIssue,
+  getIssueById,
+  updateIssue,
 };

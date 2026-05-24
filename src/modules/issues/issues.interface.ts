@@ -7,6 +7,12 @@ export interface CreateIssuePayload {
   type: IssueType;
 }
 
+export interface UpdateIssuePayload {
+  title?: string;
+  description?: string;
+  type?: IssueType;
+}
+
 export interface IssueRecord {
   id: number;
   title: string;
