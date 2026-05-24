@@ -35,6 +35,8 @@ export interface IssueListItem {
   updated_at: string;
 }
 
+export type IssueDetail = IssueListItem;
+
 export interface IssueQuery {
   sort: "newest" | "oldest";
   type?: IssueType;

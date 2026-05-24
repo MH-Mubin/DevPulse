@@ -106,11 +106,15 @@ const getAllIssues = async (req: Request, res: Response) => {
       });
     }
 
-    const query: IssueQuery = {
-      sort,
-      ...(type ? { type: type as IssueQuery["type"] } : {}),
-      ...(status ? { status: status as IssueQuery["status"] } : {}),
-    };
+    const query: IssueQuery = { sort };
+
+    if (type) {
+      query.type = type as IssueQuery["type"];
+    }
+
+    if (status) {
+      query.status = status as IssueQuery["status"];
+    }
 
     const result = await issuesService.getAllIssues(query);
 
@@ -131,7 +135,38 @@ const getAllIssues = async (req: Request, res: Response) => {
   }
 };
 
+const getSingleIssue = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await issuesService.getSingleIssue(id);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Issue not found",
+        errors: "No issue found with this id",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Issue retrived successfully",
+      data: result,
+    });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to get issue";
+
+    return res.status(500).json({
+      success: false,
+      message,
+      errors: error,
+    });
+  }
+};
+
 export const issuesController = {
   createIssue,
   getAllIssues,
+  getSingleIssue,
 };
