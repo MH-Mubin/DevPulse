@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 
 import type { UserRole } from "../auth/auth.interface";
-import type { CreateIssuePayload } from "./issues.interface";
+import type { CreateIssuePayload, IssueQuery } from "./issues.interface";
 import { issuesService } from "./issues.service";
 
 type AuthUser = {
@@ -71,6 +71,67 @@ const createIssue = async (req: Request, res: Response) => {
   }
 };
 
+const getAllIssues = async (req: Request, res: Response) => {
+  try {
+    const sort = (req.query.sort as string | undefined) ?? "newest";
+    const type = req.query.type as string | undefined;
+    const status = req.query.status as string | undefined;
+
+    if (sort !== "newest" && sort !== "oldest") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sort value",
+        errors: "Sort must be newest or oldest",
+      });
+    }
+
+    if (type && type !== "bug" && type !== "feature_request") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid type",
+        errors: "Type must be bug or feature_request",
+      });
+    }
+
+    if (
+      status &&
+      status !== "open" &&
+      status !== "in_progress" &&
+      status !== "resolved"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status",
+        errors: "Status must be open, in_progress, or resolved",
+      });
+    }
+
+    const query: IssueQuery = {
+      sort,
+      ...(type ? { type: type as IssueQuery["type"] } : {}),
+      ...(status ? { status: status as IssueQuery["status"] } : {}),
+    };
+
+    const result = await issuesService.getAllIssues(query);
+
+    return res.status(200).json({
+      success: true,
+      message: "Issues retrived successfully",
+      data: result,
+    });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to get issues";
+
+    return res.status(500).json({
+      success: false,
+      message,
+      errors: error,
+    });
+  }
+};
+
 export const issuesController = {
   createIssue,
+  getAllIssues,
 };
