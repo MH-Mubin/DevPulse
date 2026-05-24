@@ -4,6 +4,8 @@ import express from "express";
 
 import { authRoute } from "./modules/auth/auth.route";
 import { issuesRoute } from "./modules/issues/issues.route";
+import globalErrorHandler from "./middleware/globalErrorHandler";
+import notFound from "./middleware/notFound";
 
 const app: Application = express();
 
@@ -20,5 +22,8 @@ app.get("/", (req: Request, res: Response) => {
     message: "DevPulse API running",
   });
 });
+
+app.use(notFound);
+app.use(globalErrorHandler);
 
 export default app;
