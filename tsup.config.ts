@@ -3,14 +3,14 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/server.ts"],
 
-  format: ["esm"],
+  format: ["cjs"],
   target: "esnext",
   outDir: "dist",
   clean: true,
   bundle: true,
   splitting: false,
   sourcemap: true,
-  outExtension: ({ format }) => ({
-    js: format === "cjs" ? ".js" : ".js",
+  outExtension: () => ({
+    js: ".js",
   }),
 });
